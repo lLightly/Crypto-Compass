@@ -59,7 +59,7 @@ def fetch_spx(*, start: str = "2020-05-12", interval: str = "1d") -> pd.DataFram
 
 
 def fetch_dxy(*, start: str = "2020-05-12", interval: str = "1d") -> pd.DataFrame:
-    return _fetch_yahoo("DX=F", start, interval)
+    return _fetch_yahoo("DX-Y.NYB", start, interval)
 
 
 def fetch_us10y(*, start: str = "2020-05-12", interval: str = "1d") -> pd.DataFrame:
