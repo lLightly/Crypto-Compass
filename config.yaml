@@ -13,7 +13,7 @@ files:
 ui:
   plot_padding_days: 7
   default_years: 3
-  slider_step_days: 7
+  slider_step_days: 1
 assets:
   btc:
     price_start: '2020-05-12'
