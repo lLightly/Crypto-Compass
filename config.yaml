@@ -1,0 +1,184 @@
+data_dir: data/processed
+compass:
+  trend_horizon_months: 3
+files:
+  vix: vix_processed.csv
+  btc_cot: btc_cot_processed.csv
+  btc: btc_price.csv
+  eth_cot: eth_cot_processed.csv
+  eth: eth_price.csv
+  spx: spx_price.csv
+  dxy: dxy_price.csv
+  us10y: us10y_price.csv
+ui:
+  plot_padding_days: 7
+  default_years: 3
+  slider_step_days: 7
+assets:
+  btc:
+    price_start: '2020-05-12'
+    cot_min_date: '2020-05-12'
+    engine:
+      verdict_thresholds:
+        buy: 1.5
+        sell: 3.5
+      min_confidence_for_verdict: 1.0
+      vix:
+        enabled: true
+        weight: 1.0
+        scale: 1.0
+        asof_tolerance_days: 7
+        rolling_window_days: 252
+        levels_lookback_points: 756
+        sigma_levels:
+        - 1
+        - 2
+        - 3
+        scoring:
+          very_strong_risk_off_score: -8.0
+          very_strong_risk_on_score: 8.0
+          strong_risk_off_score: -3.5
+          strong_risk_on_score: 3.5
+          risk_off_score: -1.5
+          risk_on_score: 1.5
+      cot:
+        asof_tolerance_days: 14
+        publication_lag_days: 3
+        index:
+          enabled: true
+          weight: 1.0
+          window_weeks: 26
+          quantile_lookback_points: 104
+          quantiles:
+            p5: 0.1
+            p10: 0.15
+            p90: 0.9
+            p95: 0.95
+          scoring:
+            comm:
+              abs_thresholds:
+                bull: 75.0
+                strong_bull: 90.0
+                bear: 25.0
+                strong_bear: 10.0
+              scores:
+                bull: 1.0
+                strong_bull: 2.0
+                bear: -1.5
+                strong_bear: -3.0
+            large_inv:
+              abs_thresholds:
+                bull: 70.0
+                strong_bull: 85.0
+                bear: 30.0
+                strong_bear: 10.0
+              scores:
+                bull: 1.0
+                strong_bull: 1.8
+                bear: -0.5
+                strong_bear: -1.8
+        z_score:
+          enabled: true
+          weight: 1.0
+          window_weeks: 104
+          thresholds:
+            strong_bull: 2.0
+            strong_bear: -1.5
+          scores:
+            strong_bull: 1.0
+            strong_bear: -2.0
+      interaction:
+        enabled: false
+        mode: same
+        vix_strong: 1.0
+        cot_strong: 1.5
+        boost: 1.0
+  eth:
+    price_start: '2023-03-28'
+    cot_min_date: '2023-03-28'
+    engine:
+      verdict_thresholds:
+        buy: 2.0
+        sell: 3.5
+      min_confidence_for_verdict: 1.0
+      vix:
+        enabled: true
+        weight: 1.0
+        scale: 1.0
+        asof_tolerance_days: 7
+        rolling_window_days: 252
+        levels_lookback_points: 756
+        sigma_levels:
+        - 1
+        - 2
+        - 3
+        scoring:
+          very_strong_risk_off_score: -8.0
+          strong_risk_off_score: -3.5
+          risk_off_score: -1.5
+          very_strong_risk_on_score: 8.0
+          strong_risk_on_score: 2.5
+          risk_on_score: 1.0
+      cot:
+        asof_tolerance_days: 14
+        publication_lag_days: 3
+        index:
+          enabled: true
+          weight: 1.0
+          window_weeks: 26
+          quantile_lookback_points: 104
+          quantiles:
+            p5: 0.1
+            p10: 0.15
+            p90: 0.9
+            p95: 0.95
+          scoring:
+            comm:
+              abs_thresholds:
+                bull: 70.0
+                strong_bull: 80.0
+                bear: 30.0
+                strong_bear: 10.0
+              scores:
+                bull: 1.5
+                strong_bull: 2.0
+                bear: -1.0
+                strong_bear: -3.0
+            large_inv:
+              abs_thresholds:
+                bull: 70.0
+                strong_bull: 80.0
+                bear: 25.0
+                strong_bear: 10.0
+              scores:
+                bull: 1.0
+                strong_bull: 1.8
+                bear: -0.5
+                strong_bear: -1.2
+        z_score:
+          enabled: true
+          weight: 1.0
+          window_weeks: 104
+          thresholds:
+            strong_bull: 1.5
+            strong_bear: -2.0
+          scores:
+            strong_bull: 1.0
+            strong_bear: -1.0
+      interaction:
+        enabled: false
+        mode: same
+        vix_strong: 1.0
+        cot_strong: 1.5
+        boost: 1.0
+  macro_min_date: '2020-05-12'
+  conclusion_min_date: '2020-05-12'
+cot:
+  weeks_in_year: 52
+  default_years: 3
+backtest:
+  trailing_stop_pct: 0.0
+  fee_pct: 0.001
+  slippage_pct: 0.0005
+  rf_rate: 0.05
+  periods_per_year: 365

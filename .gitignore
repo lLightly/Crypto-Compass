@@ -1,0 +1,27 @@
+*.pyc
+__pycache__/
+
+
+.venv/
+env/
+venv/
+venv/Scripts/activate.bat  # Windows
+
+.idea/
+.vscode/
+*.swp
+
+build/
+dist/
+*.egg-info/
+.coverage
+
+.env
+
+pip-log.txt
+pip-delete-this-line.txt
+
+.DS_Store
+Thumbs.db
+
+*.csv
