@@ -31,6 +31,6 @@
 ### 1. Клонирование и установка
 
 ```bash
-git clone https://github.com/yourusername/sik-compass.git
-cd sik-compass
+git clone https://github.com/lLightly/Crypto-Compass.git
+cd Crypto-Compass
 pip install -r requirements.txt
