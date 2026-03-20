@@ -1,5 +1,5 @@
 streamlit==1.55.0
-pandas==3.0.0
+pandas==2.3.3
 numpy==2.4.3
 plotly==6.6.0
 PyYAML==6.0.3
