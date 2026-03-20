@@ -1,7 +1,7 @@
-streamlit 1.55.0;
-pandas 3.0.0;
-numpy 2.4.3;
-plotly 6.6.0;
-PyYAML 6.0.3;
-requests 2.32.5;
-yfinance 1.2.0;
+streamlit==1.55.0
+pandas==3.0.0
+numpy==2.4.3
+plotly==6.6.0
+PyYAML==6.0.3
+requests==2.32.5
+yfinance==1.2.0
