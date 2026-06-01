@@ -267,7 +267,7 @@ def vix_deviation(
         template=DEFAULT_TEMPLATE,
         height=420,
         hovermode="x unified",
-        showlegend=True,
+        showlegend=False,
     )
     return fig
 
@@ -338,7 +338,7 @@ def cot_index(
         template=DEFAULT_TEMPLATE,
         height=460,
         hovermode="x unified",
-        showlegend=True,
+        showlegend=False,
     )
     return fig
 
