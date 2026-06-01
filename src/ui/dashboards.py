@@ -358,7 +358,6 @@ def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max:
     b1, b2, b3, _, _ = st.columns(5)
     b1.metric("Точность тренда", "No data" if m.get("trend_accuracy") is None else f"{m['trend_accuracy'] * 100:.1f}%")
     b2.metric("Покрытие", "No data" if m.get("trend_coverage") is None else f"{m['trend_coverage'] * 100:.1f}%")
-    b3.metric("В отработке", _fmt_int(m.get("trend_in_progress")))
 
     st.subheader("Метрики стратегии «Купи & Держи»")
     c1, c2, c3, c4, c5 = st.columns(5)
