@@ -9,7 +9,7 @@ import pandas as pd
 from src.analytics.engines import get_asset_engine
 from src.analytics.statistics import compute_cagr, compute_max_drawdown, compute_sharpe, trend_accuracy
 from src.config.settings import get_settings
-from src.constants import VERDICT_BULLISH, VERDICT_NO_DATA
+from src.constants import VERDICT_BEARISH, VERDICT_BULLISH, VERDICT_NO_DATA
 from src.utils.pandas_utils import ensure_datetime_sorted
 
 
@@ -42,17 +42,32 @@ def _apply_trailing_stop(daily: pd.DataFrame, stop_pct: float) -> pd.DataFrame:
     pos, hits = [], []
     peak = np.nan
     prev = 0
+    stopped = False
+
     for close, tgt in daily[["close", "tgt_pos"]].itertuples(index=False):
-        cur = int(tgt)
+        target = int(tgt)
+        cur = target
         hit = False
+
+        if stopped and target:
+            cur = 0
+        elif stopped and not target:
+            stopped = False
+            peak = np.nan
+            cur = 0
+
         if prev:
             peak = close if np.isnan(peak) else max(float(peak), float(close))
             if close <= peak * (1 - stop_pct):
-                cur, hit, peak = 0, True, np.nan
+                cur = 0
+                hit = True
+                stopped = True
+                peak = np.nan
             elif not cur:
                 peak = np.nan
         elif cur:
             peak = float(close)
+
         pos.append(cur)
         hits.append(hit)
         prev = cur
@@ -60,6 +75,25 @@ def _apply_trailing_stop(daily: pd.DataFrame, stop_pct: float) -> pd.DataFrame:
     daily["pos"] = pos
     daily["trailing_stop_hit"] = hits
     return daily
+
+
+def _add_horizon_status(signals: pd.DataFrame, *, latest_price_date: pd.Timestamp, horizon_months: int) -> pd.DataFrame:
+    if signals is None or signals.empty:
+        return pd.DataFrame() if signals is None else signals.copy()
+
+    out = signals.copy()
+    exec_date = pd.to_datetime(out.get("exec_date"), errors="coerce").dt.tz_localize(None).dt.normalize()
+    signal_date = pd.to_datetime(out.get("signal_date"), errors="coerce").dt.tz_localize(None).dt.normalize()
+    base_date = exec_date.where(exec_date.notna(), signal_date)
+
+    out["horizon_end_date"] = base_date + pd.DateOffset(months=int(horizon_months))
+    directional = out["verdict"].isin([VERDICT_BULLISH, VERDICT_BEARISH])
+    in_progress = directional & out["horizon_end_date"].notna() & (out["horizon_end_date"] > latest_price_date)
+
+    out["horizon_status"] = "Не оценивается"
+    out.loc[directional & ~in_progress, "horizon_status"] = "Завершён"
+    out.loc[in_progress, "horizon_status"] = "В отработке"
+    return out
 
 
 def run_trend_validation(
@@ -136,10 +170,19 @@ def run_trend_validation(
         sig_eval = sig_eval[sig_eval["date"] <= end_ts]
         sig_show = sig_show[(sig_show["signal_date"] <= end_ts) | (sig_show["exec_date"] <= end_ts)]
 
+    horizon_months = int(get_settings().compass.trend_horizon_months)
+    latest_price_date = pd.Timestamp(px["date"].max()).normalize()
+
     acc, cov, confusion = trend_accuracy(
         signals=sig_eval.reset_index(drop=True),
         df_price=px,
-        horizon_months=int(get_settings().compass.trend_horizon_months),
+        horizon_months=horizon_months,
+    )
+
+    sig_show = _add_horizon_status(
+        sig_show.reset_index(drop=True),
+        latest_price_date=latest_price_date,
+        horizon_months=horizon_months,
     )
 
     metrics = {
@@ -155,6 +198,8 @@ def run_trend_validation(
         "sharpe_bh": compute_sharpe(daily["asset_ret"], rf=rf_rate, periods_per_year=periods_per_year),
         "trend_accuracy": acc,
         "trend_coverage": cov,
-        "horizon_months": float(get_settings().compass.trend_horizon_months),
+        "trend_in_progress": float(confusion.get("in_progress", 0)),
+        "trend_completed": float(confusion.get("completed_directional", 0)),
+        "horizon_months": float(horizon_months),
     }
     return TrendValidationResult(curve, metrics, confusion, sig_show.reset_index(drop=True), warnings, daily)

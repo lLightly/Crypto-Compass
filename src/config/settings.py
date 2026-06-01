@@ -70,6 +70,7 @@ class UISettings:
     plot_padding_days: int
     default_years: int
     slider_step_days: int
+    telegram_channel_url: str
 
 
 @dataclass(frozen=True)
@@ -399,9 +400,13 @@ def _parse_engine(asset_raw: dict[str, Any], *, asset_name: str) -> AssetEngineS
                     p95=_num(q_raw.get("p95"), 0.95, field=f"assets.{asset_name}.engine.cot.index.quantiles.p95"),
                 ),
                 scoring=COTIndexScoringSettings(
-                    comm=_parse_component_scoring(idx_sc.get("comm") or {}, base=f"assets.{asset_name}.engine.cot.index.scoring.comm"),
+                    comm=_parse_component_scoring(
+                        idx_sc.get("comm") or {},
+                        base=f"assets.{asset_name}.engine.cot.index.scoring.comm",
+                    ),
                     large_inv=_parse_component_scoring(
-                        idx_sc.get("large_inv") or {}, base=f"assets.{asset_name}.engine.cot.index.scoring.large_inv"
+                        idx_sc.get("large_inv") or {},
+                        base=f"assets.{asset_name}.engine.cot.index.scoring.large_inv",
                     ),
                 ),
             ),
@@ -454,6 +459,7 @@ def _build_settings(raw: dict[str, Any]) -> Settings:
             plot_padding_days=_int(ui_raw.get("plot_padding_days"), 7, field="ui.plot_padding_days"),
             default_years=_int(ui_raw.get("default_years"), 3, field="ui.default_years"),
             slider_step_days=_int(ui_raw.get("slider_step_days"), 7, field="ui.slider_step_days"),
+            telegram_channel_url=str(ui_raw.get("telegram_channel_url", "https://t.me/your_project_channel")).strip(),
         ),
         assets=AssetsSettings(
             btc=SingleAssetSettings(

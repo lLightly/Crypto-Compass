@@ -119,6 +119,21 @@ def forward_return(price: pd.Series, start_ts: pd.Timestamp, end_ts: pd.Timestam
     return float(end_px / start_px - 1.0)
 
 
+def _empty_confusion() -> dict[str, int]:
+    return {
+        "bull_correct": 0,
+        "bull_wrong": 0,
+        "bull_in_progress": 0,
+        "bear_correct": 0,
+        "bear_wrong": 0,
+        "bear_in_progress": 0,
+        "evaluated": 0,
+        "in_progress": 0,
+        "completed_directional": 0,
+        "directional": 0,
+    }
+
+
 def trend_accuracy(
     signals: pd.DataFrame,
     df_price: pd.DataFrame,
@@ -126,7 +141,7 @@ def trend_accuracy(
     bullish_label: str = "Бычий тренд",
     bearish_label: str = "Медвежий тренд",
 ) -> Tuple[Optional[float], Optional[float], Dict[str, int]]:
-    confusion = {"bull_correct": 0, "bull_wrong": 0, "bear_correct": 0, "bear_wrong": 0, "evaluated": 0}
+    confusion = _empty_confusion()
 
     if signals is None or signals.empty or df_price is None or df_price.empty:
         return None, None, confusion
@@ -139,17 +154,30 @@ def trend_accuracy(
     if price.empty:
         return None, None, confusion
 
+    latest_price_date = pd.Timestamp(price.index.max()).normalize()
     total = len(sig)
     evaluated = 0
     correct = 0
+    in_progress = 0
+    directional = 0
 
     for _, row in sig.iterrows():
         verdict = str(row.get("verdict", ""))
         if verdict not in (bullish_label, bearish_label):
             continue
 
+        directional += 1
         start_ts = pd.Timestamp(row["date"]).normalize()
         end_ts = (start_ts + pd.DateOffset(months=int(horizon_months))).normalize()
+
+        if latest_price_date < end_ts:
+            in_progress += 1
+            if verdict == bullish_label:
+                confusion["bull_in_progress"] += 1
+            else:
+                confusion["bear_in_progress"] += 1
+            continue
+
         fr = forward_return(price, start_ts, end_ts)
         if fr is None:
             continue
@@ -159,17 +187,22 @@ def trend_accuracy(
             if fr > 0:
                 correct += 1
                 confusion["bull_correct"] += 1
-            elif fr < 0:
+            else:
                 confusion["bull_wrong"] += 1
         else:
             if fr < 0:
                 correct += 1
                 confusion["bear_correct"] += 1
-            elif fr > 0:
+            else:
                 confusion["bear_wrong"] += 1
 
     confusion["evaluated"] = evaluated
-    if evaluated == 0:
-        return None, None, confusion
+    confusion["in_progress"] = in_progress
+    confusion["completed_directional"] = evaluated
+    confusion["directional"] = directional
 
-    return float(correct / evaluated), float(evaluated / total) if total > 0 else None, confusion
+    eligible_total = max(total - in_progress, 0)
+    accuracy = None if evaluated == 0 else float(correct / evaluated)
+    coverage = None if eligible_total == 0 else float(evaluated / eligible_total)
+
+    return accuracy, coverage, confusion

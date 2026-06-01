@@ -14,6 +14,7 @@ ui:
   plot_padding_days: 7
   default_years: 3
   slider_step_days: 1
+  telegram_channel_url: 'https://t.me/your_project_channel'
 assets:
   btc:
     price_start: '2020-05-12'

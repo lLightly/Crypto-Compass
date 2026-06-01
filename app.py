@@ -22,13 +22,31 @@ st.title("Система интерпретации крипторынка — �
 settings = get_settings()
 DATASETS = list(settings.files)
 st.session_state.setdefault("_data_v", 0)
+st.session_state.setdefault("_updating", False)
 
-if st.button("Обновить все данные"):
-    with st.spinner("Скачиваю и обрабатываю данные…"):
-        update_data()
-        st.session_state["_data_v"] += 1
-        st.cache_data.clear()
-    st.success("Данные обновлены!")
+top_left, top_right = st.columns([0.78, 0.22])
+with top_right:
+    st.link_button("Telegram-канал", settings.ui.telegram_channel_url, use_container_width=True)
+
+if st.button("Обновить все данные", disabled=bool(st.session_state["_updating"])):
+    st.session_state["_updating"] = True
+    try:
+        with st.spinner("Скачиваю и обрабатываю данные…"):
+            result = update_data()
+
+        if result.updated:
+            st.session_state["_data_v"] += 1
+            st.cache_data.clear()
+
+        if result.ok:
+            st.success(f"Данные обновлены: {', '.join(result.updated)}")
+        else:
+            st.error("Обновление завершилось с ошибками. Старые CSV-файлы не перезаписывались для неуспешных источников.")
+            st.dataframe(pd.DataFrame([f.as_row() for f in result.failures]), width="stretch")
+            if result.updated:
+                st.warning(f"Успешно обновлены источники: {', '.join(result.updated)}")
+    finally:
+        st.session_state["_updating"] = False
 
 
 @st.cache_data(show_spinner=False)

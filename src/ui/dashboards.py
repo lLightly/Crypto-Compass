@@ -122,11 +122,25 @@ def _fmt_dd(x: float | None) -> str:
     return "No data" if x is None or pd.isna(x) else f"{x * 100:.2f}%"
 
 
+def _fmt_int(x: float | int | None) -> str:
+    return "0" if x is None or pd.isna(x) else str(int(x))
+
+
 def _aligned_points(sig: pd.DataFrame, eq: pd.DataFrame, date_col: str) -> pd.DataFrame:
     if sig.empty or eq.empty or date_col not in sig.columns:
         return pd.DataFrame()
 
-    cols_needed = [date_col, "verdict", "report_date", "signal_date", "exec_date", "data_status", "reason", "block_reason"]
+    cols_needed = [
+        date_col,
+        "verdict",
+        "report_date",
+        "signal_date",
+        "exec_date",
+        "data_status",
+        "reason",
+        "block_reason",
+        "horizon_status",
+    ]
     cols = list(dict.fromkeys(c for c in cols_needed if c in sig.columns))
 
     pts = sig.loc[:, cols].copy()
@@ -151,6 +165,8 @@ def _signal_table_columns(df: pd.DataFrame) -> list[str]:
         "report_date",
         "signal_date",
         "exec_date",
+        "horizon_end_date",
+        "horizon_status",
         "verdict",
         "total_score",
         "position",
@@ -209,7 +225,7 @@ def _factor_breakdown_from_row(row: pd.Series) -> pd.DataFrame:
 
 def _signal_label(row: pd.Series) -> str:
     ts = pd.Timestamp(row["signal_date"]).strftime("%Y-%m-%d")
-    return f"{ts} | {row.get('verdict', '—')} | {row.get('data_status', '—')}"
+    return f"{ts} | {row.get('verdict', '—')} | {row.get('data_status', '—')} | {row.get('horizon_status', '—')}"
 
 
 def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max: dt.date, eth_max: dt.date):
@@ -217,7 +233,7 @@ def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max:
     st.header("Историческое тестирование стратегии")
     st.caption(
         "report_date = дата COT, signal_date = дата публикации, exec_date = первый следующий торговый день после signal_date. "
-        "В Trend Validation рыночные факторы читаются не позже предыдущего дневного бара, чтобы исключить ошибку просмотра будущего."
+        "В Trend Validation рыночные факторы читаются не позже предыдущего дневного бара, чтобы исключить просмотр будущих данных."
     )
 
     c1, c2 = st.columns([2, 1])
@@ -297,6 +313,7 @@ def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max:
         for verdict, color in colors.items():
             spts = sig_pts[sig_pts["verdict"] == verdict]
             if not spts.empty:
+                custom_cols = [c for c in ["data_status", "reason", "horizon_status"] if c in spts.columns]
                 fig.add_scatter(
                     x=spts["date"],
                     y=spts["Equity"],
@@ -308,10 +325,11 @@ def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max:
                         + verdict
                         + "<br>Status: %{customdata[0]}<br>Reason: %{customdata[1]}<extra></extra>"
                     ),
-                    customdata=spts[["data_status", "reason"]].fillna("—"),
+                    customdata=spts[custom_cols].fillna("—"),
                 )
             epts = exe_pts[exe_pts["verdict"] == verdict]
             if not epts.empty:
+                custom_cols = [c for c in ["data_status", "reason", "horizon_status"] if c in epts.columns]
                 fig.add_scatter(
                     x=epts["date"],
                     y=epts["Equity"],
@@ -323,7 +341,7 @@ def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max:
                         + verdict
                         + "<br>Status: %{customdata[0]}<br>Reason: %{customdata[1]}<extra></extra>"
                     ),
-                    customdata=epts[["data_status", "reason"]].fillna("—"),
+                    customdata=epts[custom_cols].fillna("—"),
                 )
 
     st.plotly_chart(fig, width="stretch", key=f"equity_curve_compass_{ak}")
@@ -331,29 +349,51 @@ def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max:
     m = result.metrics
     st.subheader("Метрики стратегии «Компас»")
     a1, a2, a3, a4, a5 = st.columns(5)
-    a1.metric("Cовокупный среднегодовой темп роста (CAGR) ", _fmt_pct(m.get("cagr")))
+    a1.metric("Совокупный среднегодовой темп роста (CAGR)", _fmt_pct(m.get("cagr")))
     a2.metric("Максимальная просадка (Max DD)", _fmt_dd(m.get("max_dd")))
-    a3.metric("Коэффицент Калмар (Calmar ratio)", _fmt_num(m.get("calmar")))
-    a4.metric("Коэффицент Шарп (Sharpe ratio)", _fmt_num(m.get("sharpe")))
+    a3.metric("Коэффициент Калмара (Calmar ratio)", _fmt_num(m.get("calmar")))
+    a4.metric("Коэффициент Шарпа (Sharpe ratio)", _fmt_num(m.get("sharpe")))
     a5.metric("«Компас» доходность", _fmt_pct(m.get("total_return")))
 
-    b1, b2, _, _, _ = st.columns(5)
+    b1, b2, b3, _, _ = st.columns(5)
     b1.metric("Точность тренда", "No data" if m.get("trend_accuracy") is None else f"{m['trend_accuracy'] * 100:.1f}%")
     b2.metric("Покрытие", "No data" if m.get("trend_coverage") is None else f"{m['trend_coverage'] * 100:.1f}%")
+    b3.metric("В отработке", _fmt_int(m.get("trend_in_progress")))
 
     st.subheader("Метрики стратегии «Купи & Держи»")
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Cовокупный среднегодовой темп роста (CAGR)", _fmt_pct(m.get("bh_cagr")))
+    c1.metric("Совокупный среднегодовой темп роста (CAGR)", _fmt_pct(m.get("bh_cagr")))
     c2.metric("Максимальная просадка (Max DD)", _fmt_dd(m.get("bh_max_dd")))
-    c3.metric("Коэффицент Калмар (Calmar ratio)", _fmt_num(m.get("bh_calmar")))
-    c4.metric("Коэффицент Шарп (Sharpe ratio)", _fmt_num(m.get("sharpe_bh")))
+    c3.metric("Коэффициент Калмара (Calmar ratio)", _fmt_num(m.get("bh_calmar")))
+    c4.metric("Коэффициент Шарпа (Sharpe ratio)", _fmt_num(m.get("sharpe_bh")))
     c5.metric("B&H доходность", _fmt_pct(m.get("bh_total_return")))
 
     conf = result.confusion
+    labels = ["Верно", "Неверно", "В отработке"]
+    marker_colors = ["green", "red", "yellow"]
+
     pie = make_subplots(rows=1, cols=2, specs=[[{"type": "domain"}, {"type": "domain"}]], subplot_titles=("Бычий", "Медвежий"))
-    pie.add_trace(go.Pie(labels=["Верно", "Неверно"], values=[conf.get("bull_correct", 0), conf.get("bull_wrong", 0)], hole=0.3, marker_colors=["green", "red"]), 1, 1)
-    pie.add_trace(go.Pie(labels=["Верно", "Неверно"], values=[conf.get("bear_correct", 0), conf.get("bear_wrong", 0)], hole=0.3, marker_colors=["green", "red"]), 1, 2)
-    pie.update_layout(title_text="Пончики точности", height=400)
+    pie.add_trace(
+        go.Pie(
+            labels=labels,
+            values=[conf.get("bull_correct", 0), conf.get("bull_wrong", 0), conf.get("bull_in_progress", 0)],
+            hole=0.3,
+            marker_colors=marker_colors,
+        ),
+        1,
+        1,
+    )
+    pie.add_trace(
+        go.Pie(
+            labels=labels,
+            values=[conf.get("bear_correct", 0), conf.get("bear_wrong", 0), conf.get("bear_in_progress", 0)],
+            hole=0.3,
+            marker_colors=marker_colors,
+        ),
+        1,
+        2,
+    )
+    pie.update_layout(title_text="Точность сигналов с учётом незавершённых горизонтов", height=400)
     st.plotly_chart(pie, width="stretch", key=f"trend_confusion_{ak}")
 
     if st.checkbox("Показать таблицу режимов (сигналов + диагностика)", key=f"trend_show_signals_{ak}"):
@@ -373,10 +413,14 @@ def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max:
         labels = [_signal_label(row) for _, row in sig_sorted.iterrows()]
         selected_label = st.selectbox("Сигнал", labels, index=0, key=f"trend_breakdown_select_{ak}")
         selected_row = sig_sorted.iloc[labels.index(selected_label)]
+        horizon_end = selected_row.get("horizon_end_date")
+        horizon_text = pd.Timestamp(horizon_end).date() if pd.notna(horizon_end) else "—"
         st.markdown(
             f"**report_date:** {pd.Timestamp(selected_row['report_date']).date() if pd.notna(selected_row['report_date']) else '—'}  "
             f"**signal_date:** {pd.Timestamp(selected_row['signal_date']).date() if pd.notna(selected_row['signal_date']) else '—'}  "
-            f"**exec_date:** {pd.Timestamp(selected_row['exec_date']).date() if pd.notna(selected_row['exec_date']) else '—'}"
+            f"**exec_date:** {pd.Timestamp(selected_row['exec_date']).date() if pd.notna(selected_row['exec_date']) else '—'}  "
+            f"**horizon_end:** {horizon_text}  "
+            f"**status:** {selected_row.get('horizon_status', '—')}"
         )
         if selected_row.get("reason"):
             st.info(str(selected_row["reason"]))
@@ -385,5 +429,5 @@ def trend_validation_dashboard(dfs, btc_min: dt.date, eth_min: dt.date, btc_max:
         st.dataframe(_factor_breakdown_from_row(selected_row), width="stretch")
 
     if st.checkbox("Показать логи дневной доходности", key=f"trend_show_daily_{ak}"):
-        st.caption("tgt_pos/pos — long-only позиции 0/1. На Neutral/Bearish они обязаны быть 0. trade = |pos - prev_pos|.")
+        st.caption("tgt_pos/pos — long-only позиции 0/1. На Neutral/Bearish они должны быть 0. trade = |pos - prev_pos|.")
         st.dataframe(result.daily.sort_values("date", ascending=False).head(200).style.format({"Equity": "{:,.2f}"}), width="stretch")
