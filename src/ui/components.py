@@ -373,8 +373,8 @@ def z_score(
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=plot_df["date"], y=plot_df["Z_Score_Comm"], name="Z-Score", line=dict(color="yellow", width=2)))
-    fig.add_hline(y=float(thr.strong_bull), line_color="green", line_dash="dash", annotation_text=f"strong_bull {float(thr.strong_bull):.2f}")
-    fig.add_hline(y=float(thr.strong_bear), line_color="red", line_dash="dash", annotation_text=f"strong_bear {float(thr.strong_bear):.2f}")
+    fig.add_hline(y=float(thr.strong_bull), line_color="green", line_dash="dash")
+    fig.add_hline(y=float(thr.strong_bear), line_color="red", line_dash="dash")
 
     _set_x_range(fig, x_range_min, x_range_max, padding_days)
     if x_range_min is None or x_range_max is None:
